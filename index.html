@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="./style.css">
+    <title>BeatFlow</title>
+</head>
+<body>
+    <header>
+        <h1 id="title">BeatFlow</h1>
+        <nav>
+            <a href="./index.html">Player</a>
+            <a href="./playlist.html">Playlist</a>
+        </nav>
+    </header>
+    <main>
+        <section>
+            <div class="search">
+                <form>
+                    <input id="search-txt" type="text" placeholder="Search songs,artists...">
+                    <input id="search-btn" type="submit" value="Search">
+                </form>
+            </div>
+            <div class="main-body">
+                
+                <div id="music-display">
+
+                    <h2 class="now-playing" style="font-size: x-small; color:rgb(6, 85, 125);text-align: left;padding:5px;">Now Playing</h2>
+
+                    <!-- SCREEN (core visual player) -->
+                    <div id="screen">
+                        <img src="./image/ac.jpeg" id="album-cover">
+
+                        <div id="details">
+                            <h2 id="song-title">Song Title</h2>
+                            <p id="artist-name">Artist Name</p>
+                        </div>
+                    </div>
+
+                    <!--  AUDIO ENGINE -->
+                    <audio id="audio-player" style="display:none;"></audio>
+
+                    <!-- 🎚PROGRESS -->
+                    <div id="progress">
+                        <input type="range" id="range" value="0" min="0" max="100">
+                    </div>
+
+                    <!--  CONTROLS -->
+                    <div id="progress-btn">
+                        <button id="prev">⏮</button>
+                        <button id="pause">▶</button>
+                        <button id="next">⏭</button>
+                    </div>
+
+                </div>
+
+               
+                <div class="outer-wheel">
+                    <button class="btn shuffle">
+                        <img src="./image/shuffle.png" alt="shuffle">
+                    </button>
+                    <button class="btn prev">
+                        <img src="image/back.png" alt="previous">
+                    </button>
+                    <button class="btn next">
+                        <img src="./image/forward-button.png" alt="next">
+                    </button>
+                    <button class="btn volume">
+                        <img src="./image/volume.png" alt="vol">
+                    </button>
+                
+                    <div class="inner-wheel">
+                        <button class="center-btn" id="play">
+                            <img src="./image/play.png" alt="play">
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+    <script src="./script.js"></script>
+</body>
+</html>
