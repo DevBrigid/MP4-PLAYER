@@ -46,34 +46,35 @@ function saveAndUpdatePlaylist(song) {
         cover: song.artworkUrl100, 
         preview: song.previewUrl
     };
-    // Save to db.json
+
+    // check if the song is already in the DB to avoid duplicates
     fetch("http://localhost:3000/recentSongs")
         .then(res => res.json())
         .then(existingSongs => {
-
-            // 2. Prevent duplicates
             const alreadyExists = existingSongs.some(s => s.id === newSong.id);
 
-            let updatedSongs;
-
-            if (alreadyExists) {
-                updatedSongs = existingSongs;
-            } else {
-                updatedSongs = [newSong, ...existingSongs];
-
-                // update DB
+            if (!alreadyExists) {
+                //Use POST to add just the NEW song
                 fetch("http://localhost:3000/recentSongs", {
-                    method: "PUT",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify(updatedSongs)
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(newSong)
+                })
+                .then(res => res.json())
+                .then(() => {
+                    // Refresh the UI list after the save is successful
+                    loadPlaylistFromServer();
                 });
             }
-
-            // 3. Update UI instantly
-            renderPlaylist(updatedSongs);
         });
+}
+
+// Separate function to keep the sidebar updated
+function loadPlaylistFromServer() {
+    fetch("http://localhost:3000/recentSongs")
+        .then(res => res.json())
+        .then(songs => renderPlaylist(songs))
+        .catch(err => console.log("Database fetch error:", err));
 }
 
 //Pause/play button feature
@@ -122,15 +123,16 @@ function adjustVolume(volume){
 
 //load the recently played songs to the playlist page
 function renderPlaylist(songs) {
-    const playlist = document.getElementById("playlist");
+    const playlist = document.getElementById("song-list");
     if (!playlist) return;
 
     playlist.innerHTML = "";
+    
     songs.forEach(song => {
         playlist.innerHTML += `
             <div class="song-item">
-                <img src="${song.cover}" width="60">
-                <div>
+                <img src="${song.cover}" alt="">
+                <div class="song-info">
                     <h4>${song.title}</h4>
                     <p>${song.artist}</p>
                 </div>
@@ -184,4 +186,5 @@ window.addEventListener('load', () => {
         artist.textContent = song.artistName;
         audio.src = song.previewUrl;
     }
+    loadPlaylistFromServer();
 });
