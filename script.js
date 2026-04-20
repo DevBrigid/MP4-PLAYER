@@ -1,5 +1,3 @@
-
-
 let songsList = [];
 let currentSongIndex = 0;
 
@@ -15,9 +13,15 @@ function searchSong() {
     fetch(`https://itunes.apple.com/search?term=${searchInput}&entity=song&limit=20`)
         .then(response => response.json())
         .then(data => {
-            songsList = data.results; // iTunes uses 'results' not 'data'
-            playSongs(songsList);
-        });
+            if (!data.results || data.results.length === 0) return;
+
+            songsList = data.results; 
+
+            //Save the search results so they survive the reload
+            localStorage.setItem('lastSearchResult', JSON.stringify(songsList));// iTunes uses 'results' not 'data'
+            playSongs(songsList[0]);
+        })
+        .catch(err => console.error("iTunes search failed:", err)); //error handling
 }
 
 function playSongs(songs){
@@ -25,7 +29,6 @@ function playSongs(songs){
     const song = Array.isArray(songs) ? songs[0] : songs;
     if (!song) return;
 
-    localStorage.setItem('currentSong', JSON.stringify(song)); //stores song locally as string so that when page refreshes it remembers the current song
     //update UI
     cover.src = song.artworkUrl100; 
     songTitle.textContent = song.trackName; 
@@ -34,55 +37,68 @@ function playSongs(songs){
 
     //set audio
     audio.play();
-
     saveAndUpdatePlaylist(song);
 }
 
 function saveAndUpdatePlaylist(song) {
     const newSong = {
         id: song.trackId,
-        title: song.trackName,    
-        artist: song.artistName, 
-        cover: song.artworkUrl100, 
+        title: song.trackName,
+        artist: song.artistName,
+        cover: song.artworkUrl100,
         preview: song.previewUrl
     };
 
-    // check if the song is already in the DB to avoid duplicates
-    fetch("http://localhost:3000/recentSongs")
-        .then(res => res.json())
-        .then(existingSongs => {
-            const alreadyExists = existingSongs.some(s => s.id === newSong.id);
+    //Save to browser memory (for the player)
+    localStorage.setItem('currentSong', JSON.stringify(song));
 
-            if (!alreadyExists) {
-                //Use POST to add just the NEW song
-                fetch("http://localhost:3000/recentSongs", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(newSong)
-                })
-                .then(res => res.json())
-                .then(() => {
-                    // Refresh the UI list after the save is successful
-                    loadPlaylistFromServer();
-                });
-            }
-        });
+    //Save to localStorage recent list (works everywhere)
+    let recentSongs = JSON.parse(localStorage.getItem('recentSongs') || '[]');
+    recentSongs = recentSongs.filter(s => s.id !== newSong.id); // remove duplicate if exists
+    recentSongs.push(newSong);
+    localStorage.setItem('recentSongs', JSON.stringify(recentSongs));
+
+    //Try saving to JSON server (only works locally)
+    fetch("http://localhost:3000/recentSongs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newSong)
+    })
+    .then(res => {
+        if (res.ok) {
+            loadPlaylistFromServer();
+        }
+    })
+    .catch(() => {
+        // JSON server not available, fall back to localStorage
+        renderPlaylist(JSON.parse(localStorage.getItem('recentSongs') || '[]'));
+    });
 }
 
 // Separate function to keep the sidebar updated
 function loadPlaylistFromServer() {
-    fetch("http://localhost:3000/recentSongs")
+    fetch("http://localhost:3000/recentSongs", { cache: "no-store" })
         .then(res => res.json())
+        .then(data => {
+            console.log("Current DB Array:", data);
+            return data; // return data so the next .then() receives it
+        })
         .then(songs => renderPlaylist(songs))
-        .catch(err => console.log("Database fetch error:", err));
+        .catch(() => {
+            // JSON server not available, fall back to localStorage
+            renderPlaylist(JSON.parse(localStorage.getItem('recentSongs') || '[]'));
+        });
 }
 
 //Pause/play button feature
 function togglePlayPause() {
+    const statusText = document.querySelector('#pause');
     if (audio.paused) {
         audio.play();
+        statusText.textContent = "||";
     } else {
         audio.pause();
+        statusText.textContent = "▶";
     }
 }
 
@@ -117,8 +133,16 @@ function previousSong(){
     playSongs(songsList[currentSongIndex]);
 }
 
-function adjustVolume(volume){
+const volSlider = document.getElementById('volume-slider');
+const volWrap = document.getElementById('volume-wrap');
 
+function adjustVolume() {
+    // This toggles the visibility
+    if (volWrap.classList.contains('show-vol')) {
+        volWrap.classList.remove('show-vol');
+    } else {
+        volWrap.classList.add('show-vol');
+    }
 }
 
 //load the recently played songs to the playlist page
@@ -126,9 +150,15 @@ function renderPlaylist(songs) {
     const playlist = document.getElementById("song-list");
     if (!playlist) return;
 
+    if (!Array.isArray(songs)) {
+        console.log("renderPlaylist expected an array but got:", songs);
+        songs = songs ? [songs] : []; 
+    }
+
     playlist.innerHTML = "";
+    const recentOnTop = [...songs].reverse();
     
-    songs.forEach(song => {
+    recentOnTop.forEach(song => {
         playlist.innerHTML += `
             <div class="song-item">
                 <img src="${song.cover}" alt="">
@@ -162,29 +192,62 @@ searchForm.addEventListener('submit', (e) => {
 
 //play event listener
 const playToggle = document.querySelector('.center-btn');
-playToggle.addEventListener('click',togglePlayPause);
+if(playToggle){
+    playToggle.addEventListener('click',togglePlayPause);
+}
 
 //next song event listener
 const next = document.querySelector(".next");
-next.addEventListener('click',nextSong);
+if(next){
+    next.addEventListener('click',nextSong);
+}
 
 //previous song event lisener
 const prev = document.querySelector('.prev');
-prev.addEventListener('click',previousSong);
+if(prev){
+    prev.addEventListener('click',previousSong);
+}
 
-//volume event listener
-const vol = document.querySelector('.volume');
-vol.addEventListener('click',adjustVolume)
+//volume button event listener
+const volBtn = document.querySelector('.volume');
+if (volBtn) {
+    volBtn.addEventListener('click', adjustVolume);
+}
+
+// Listen for slider movement
+volSlider.addEventListener('input', (e) => {
+    audio.volume = e.target.value; 
+});
+//close volume slider when clicking outside of it
+document.addEventListener('click', (e) => {
+    if (!volWrap.contains(e.target) && !e.target.closest('.volume')) {
+        volWrap.classList.remove('show-vol');
+    }
+});
+
+//shuffle event listener
+const shuffleBtn = document.querySelector('.shuffle');
+if (shuffleBtn){
+    shuffleBtn.addEventListener('click',shuffleSongs);
+}
 
 //"when the page loads, check if there's a saved song(in browser memory) and restore it"
 window.addEventListener('load', () => {
+    // Restore single song for the player
     const saved = localStorage.getItem('currentSong');
     if (saved) {
-        const song = JSON.parse(saved); //convert from string to object
+        const song = JSON.parse(saved);
         cover.src = song.artworkUrl100;
         songTitle.textContent = song.trackName;
         artist.textContent = song.artistName;
         audio.src = song.previewUrl;
     }
-    loadPlaylistFromServer();
+
+    // Restore the search list for the buttons
+    const savedList = localStorage.getItem('lastSearchResult');
+    if (savedList) {
+        songsList = JSON.parse(savedList);
+    }
+
+    loadPlaylistFromServer(); // tries JSON server, falls back to localStorage automatically
 });

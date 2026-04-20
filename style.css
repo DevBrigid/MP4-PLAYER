@@ -137,6 +137,30 @@ main{
     display: flex;
 }
 
+#volume-wrap {
+    width: 60px;
+    display: flex;
+    justify-content: center;
+    opacity: 0; 
+    align-self: flex-end; 
+    margin-bottom: 100px;
+    transition: opacity 0.2s ease;
+}
+
+/* Vertical slider */
+#volume-slider {
+    appearance: slider-vertical; /* Standard for modern browsers */
+    height: 150px;
+    width: 8px;
+    cursor: pointer;
+}
+
+/* Toggle class */
+.show-vol {
+    opacity: 1 !important;
+    pointer-events: all !important;
+}
+
 #song-display{
     padding: 20px;
     top: 15px;
